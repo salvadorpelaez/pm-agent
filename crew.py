@@ -1,5 +1,6 @@
 import os
 import anthropic
+from supabase import create_client
 from jira_client import JiraClient
 from notifier import send_to_pumble
 
@@ -102,3 +103,22 @@ Keep it under 300 words. Use bullet points. Start with an emoji status indicator
         print(final_report)
 
         send_to_pumble(final_report)
+        self.save_to_supabase(sprint_summary, risk_assessment, final_report)
+
+    def save_to_supabase(self, sprint_summary: str, risk_assessment: str, final_report: str):
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+        if not url or not key:
+            print("[supabase] No credentials set — skipping save.")
+            return
+        try:
+            client = create_client(url, key)
+            client.table("reports").insert({
+                "sprint_summary": sprint_summary,
+                "risk_assessment": risk_assessment,
+                "final_report": final_report,
+                "jira_project": os.getenv("JIRA_PROJECT_KEY", "")
+            }).execute()
+            print("[supabase] Report saved.")
+        except Exception as e:
+            print(f"[supabase] Failed to save: {e}")
