@@ -102,7 +102,7 @@ Keep it under 300 words. Use bullet points. Start with an emoji status indicator
         print("\n=== FINAL REPORT ===")
         print(final_report)
 
-        send_to_pumble(final_report)
+        # send_to_pumble(final_report)  # Paused — dashboard only for now
         self.save_to_supabase(sprint_summary, risk_assessment, final_report)
 
     def save_to_supabase(self, sprint_summary: str, risk_assessment: str, final_report: str):
