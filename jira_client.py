@@ -14,7 +14,7 @@ class JiraClient:
 
     def get_issues(self, max_results=50):
         payload = {
-            "jql": f"project = {self.project_key} ORDER BY updated DESC",
+            "jql": f"project = {self.project_key} AND sprint in openSprints() ORDER BY updated DESC",
             "maxResults": max_results,
             "fields": ["summary", "status", "priority", "assignee", "description", "created", "updated", "issuetype"]
         }

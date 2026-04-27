@@ -1,4 +1,5 @@
 import os
+from datetime import date
 import anthropic
 from supabase import create_client
 from jira_client import JiraClient
@@ -69,7 +70,8 @@ class PMCrew:
 Group tickets by status. Highlight what is in progress and what is done.""")
 
         # Agent 2: Risk Analyst
-        risk_assessment = self.risk_analyst.run(f"""Based on this sprint summary, identify risks:
+        today = date.today().isoformat()
+        risk_assessment = self.risk_analyst.run(f"""Today's date is {today}. Based on this sprint summary, identify risks:
 
 {sprint_summary}
 
@@ -79,7 +81,7 @@ Raw tickets:
 Identify:
 1. High-priority tickets not yet started
 2. Tickets with no assignee
-3. Items that appear stalled or overdue
+3. Items that appear stalled or overdue (use today's date to judge recency — tickets not updated in 5+ days are stalled)
 4. Overall risk level: Low / Medium / High""")
 
         # Agent 3: Status Reporter
