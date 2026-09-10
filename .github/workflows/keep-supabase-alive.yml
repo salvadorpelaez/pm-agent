@@ -38,3 +38,39 @@ jobs:
             echo "FAIL: valerius_users returned $STATUS - SUPABASE_URL is pointing at valerius"
             exit 1
           fi
+
+      - name: Assert SUPABASE_SERVICE_KEY is a service_role key for this project
+        env:
+          SVC: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          # weekly-report.yml is the only job that uses SUPABASE_SERVICE_KEY, and running it
+          # costs a real report (Anthropic + JIRA + Pumble). So the key is validated here
+          # instead: decode its claims and compare against the project URL. Nothing is
+          # written and no key material is printed - only PASS/FAIL and the role name.
+          #
+          # An UNSET secret arrives as an empty string rather than an error, which is the
+          # exact silent failure this guard exists to catch.
+          if [ -z "$SVC" ]; then
+            echo "FAIL: SUPABASE_SERVICE_KEY is empty or unset"; exit 1
+          fi
+          URL_REF=$(printf '%s' "$URL" | sed -E 's#https://([^.]+)\..*#\1#')
+          case "$SVC" in
+            sb_secret_*)
+              echo "PASS: new-format secret key present (claims not introspectable)"; exit 0 ;;
+            sb_publishable_*)
+              echo "FAIL: this is a PUBLISHABLE key - writes will be rejected by RLS"; exit 1 ;;
+          esac
+          PAYLOAD=$(printf '%s' "$SVC" | cut -d. -f2 | tr '_-' '/+')
+          case $(( ${#PAYLOAD} % 4 )) in 2) PAYLOAD="$PAYLOAD==" ;; 3) PAYLOAD="$PAYLOAD=" ;; esac
+          CLAIMS=$(printf '%s' "$PAYLOAD" | base64 -d 2>/dev/null)
+          ROLE=$(printf '%s' "$CLAIMS" | sed -E 's/.*"role"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+          KEY_REF=$(printf '%s' "$CLAIMS" | sed -E 's/.*"ref"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+          echo "decoded role: $ROLE"
+          if [ "$ROLE" != "service_role" ]; then
+            echo "FAIL: expected role=service_role, writes would be rejected"; exit 1
+          fi
+          if [ "$KEY_REF" != "$URL_REF" ]; then
+            echo "FAIL: key belongs to a different project than SUPABASE_URL"; exit 1
+          fi
+          echo "PASS: service_role key, ref matches SUPABASE_URL"
