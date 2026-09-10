@@ -109,7 +109,10 @@ Keep it under 300 words. Use bullet points. Start with an emoji status indicator
 
     def save_to_supabase(self, sprint_summary: str, risk_assessment: str, final_report: str):
         url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_KEY")
+        # Writing needs service role: the ai-portfolio project has RLS on with a
+        # read-only anon policy, so an anon key insert is rejected. Falls back to
+        # SUPABASE_KEY so nothing breaks before the service key is set.
+        key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
         if not url or not key:
             print("[supabase] No credentials set — skipping save.")
             return
@@ -123,4 +126,7 @@ Keep it under 300 words. Use bullet points. Start with an emoji status indicator
             }).execute()
             print("[supabase] Report saved.")
         except Exception as e:
+            # Do not swallow this. A rejected insert used to leave the workflow
+            # green with no report saved, which is indistinguishable from success.
             print(f"[supabase] Failed to save: {e}")
+            raise

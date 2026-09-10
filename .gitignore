@@ -1,5 +1,8 @@
 # Environment variables - never commit these
+# .env alone does NOT match .env.aiportfolio etc - match every variant
 .env
+.env.*
+!.env.example
 
 # Python-generated files
 __pycache__/
