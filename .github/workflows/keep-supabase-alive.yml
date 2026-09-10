@@ -20,3 +20,21 @@ jobs:
             echo "Warning: unexpected status $STATUS"
             exit 1
           fi
+
+      - name: Assert we are pinging ai-portfolio, not valerius
+        run: |
+          # A 200 on valuations proves nothing about WHICH project answered — both have
+          # that table. valerius_users exists only in the valerius project, so a 404 here
+          # is what proves SUPABASE_URL points at ai-portfolio. If this ever returns 200
+          # the secret has drifted back to valerius and the keep-alive is guarding the
+          # wrong database while looking perfectly green.
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/valerius_users?select=id&limit=1")
+          if [ "$STATUS" = "404" ]; then
+            echo "OK: valerius_users absent (404) - this is ai-portfolio"
+          else
+            echo "FAIL: valerius_users returned $STATUS - SUPABASE_URL is pointing at valerius"
+            exit 1
+          fi
