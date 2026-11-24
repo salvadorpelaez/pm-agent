@@ -8,6 +8,8 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # only for the keep-active commit below
     steps:
       - name: Ping Supabase
         run: |
@@ -74,3 +76,25 @@ jobs:
             echo "FAIL: key belongs to a different project than SUPABASE_URL"; exit 1
           fi
           echo "PASS: service_role key, ref matches SUPABASE_URL"
+
+      # GitHub turns off scheduled workflows after 60 days with no commit to the repository. It did on
+      # 2026-11-24 (last commit 2026-09-10), stopping this ping and the Weekly PM Report. So once the newest
+      # commit is 30 days old, the scheduled run adds an empty commit. No files change.
+      - name: Keep the repository active (GitHub's 60-day rule)
+        if: github.event_name == 'schedule'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Add an empty commit when the last one is 30 days old
+        if: github.event_name == 'schedule'
+        run: |
+          AGE_DAYS=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          echo "Newest commit is $AGE_DAYS day(s) old"
+          if [ "$AGE_DAYS" -lt 30 ]; then
+            echo "Recent enough; nothing to do"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "Keep scheduled workflows active (GitHub turns them off after 60 days without a commit)"
+          git push
